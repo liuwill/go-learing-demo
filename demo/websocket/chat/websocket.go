@@ -126,7 +126,6 @@ func (c *Client) writePump() {
 			}
 		}
 	}
-	println("+++++++++++++++++++++")
 }
 
 // serveWs handles websocket requests from the peer.
