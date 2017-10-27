@@ -9,6 +9,8 @@ var strChan = make(chan string)
 
 type Connect struct {
 	conn net.Conn
+	position int
+	register *Register
 }
 
 func (theConn *Connect) send(message string) {
@@ -20,8 +22,12 @@ type Register struct {
 	message chan string
 }
 
-func (register *Register) addConn(conn net.Conn){
-	register.conns = append(register.conns, Connect{conn: conn})
+func (register *Register) addConn(conn net.Conn) Connect{
+	connect := Connect{conn: conn, position: len(register.conns)}
+	register.conns = append(register.conns, connect)
+	connect.register = register
+
+	return connect
 }
 
 func (register *Register) bootstrap() {
@@ -51,13 +57,14 @@ func main() {
 			fmt.Println("Error accepting", err.Error())
 			return // 终止程序
 		}
-		// connList = append(connList, conn)
-		register.addConn(conn)
-		go doServerStuff(register, conn)
+
+		connect := register.addConn(conn)
+		go doServerStuff(register, connect)
 	}
 }
 
-func doServerStuff(register *Register, conn net.Conn) {
+func doServerStuff(register *Register, connect Connect) {
+	conn := connect.conn
 	for {
 		buf := make([]byte, 512)
 		len, err := conn.Read(buf)
@@ -65,10 +72,10 @@ func doServerStuff(register *Register, conn net.Conn) {
 			fmt.Println("Error reading", err.Error())
 			return //终止程序
 		}
-		fmt.Printf("Received data: %v", string(buf[:len]))
 
-		(*register).message <- string(buf[:len])
-		// strChan <- string(buf[:len])
-		// _, err = conn.Write(buf[:len])
+		message := string(buf[:len])
+		fmt.Printf("Received data: %v", message)
+
+		(*register).message <- message
 	}
 }
