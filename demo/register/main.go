@@ -45,7 +45,7 @@ func main() {
 	listener, err := net.Listen("tcp", "localhost:50000")
 	if err != nil {
 		fmt.Println("Error listening", err.Error())
-		return //终止程序
+		return // 终止程序
 	}
 	// 监听并接受来自客户端的连接
 	register := &Register{message: make(chan string), conns: []Connect{}}
@@ -70,7 +70,7 @@ func doServerStuff(register *Register, connect Connect) {
 		len, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println("Error reading", err.Error())
-			return //终止程序
+			return // 终止程序
 		}
 
 		message := string(buf[:len])
