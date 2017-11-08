@@ -13,6 +13,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var name = flag.String("name", "movie.ts", "save file name")
 var mode = flag.String("mode", "simple", "input m3u8 url")
 var info = flag.String("info", "", "url for simple mode")
 
@@ -23,6 +24,7 @@ type DownResult struct {
 
 var out = make(chan []byte)
 var downChan = make(chan DownResult)
+var batchChan = make(chan int)
 var urlChan = make(chan string)
 
 func downLoadFile(pos int, url string){
@@ -59,7 +61,7 @@ func fetchMeta(url string){
 }
 
 func saveFile(bytesData []byte){
-	outputFile := "movie.ts"
+	outputFile := *name
 	err := ioutil.WriteFile(outputFile, bytesData, 0644)
 	if err != nil {
 		println(err.Error())
@@ -87,22 +89,15 @@ func loadVideoUrlSimple() string {
 	return *info
 }
 
-func main (){
-	flag.Parse()
-
-	var m3u8Url = ""
-	if *mode == "simple" {
-		m3u8Url = loadVideoUrlSimple()
-	} else {
-		go loadVideoUrlFromRemote()
-		m3u8Url = <- urlChan
-	}
-
-	println(m3u8Url)
+func fetchM3u8File(m3u8Url string) []byte {
 	go fetchMeta(m3u8Url)
 	m3u8Content := <- out
-	contentList := strings.Split(string(m3u8Content), "\r\n")
 
+	return m3u8Content
+}
+
+func decodeVideoUrl(m3u8Content string) []string{
+	contentList := strings.Split(string(m3u8Content), "\r\n")
 	videoUrls := []string{}
 
 	for _, contentLine := range contentList {
@@ -110,11 +105,10 @@ func main (){
 			videoUrls = append(videoUrls, strings.Trim(contentLine, " "))
 		}
 	}
+	return videoUrls
+}
 
-	for i, vl := range videoUrls {
-		go downLoadFile(i, vl)
-	}
-
+func saveVideoSegment(videoUrls []string, segmentCount int) {
 	urlLen := len(videoUrls)
 	videoBytes := make([][]byte, urlLen)
 	for _, _ = range videoUrls {
@@ -132,4 +126,40 @@ func main (){
 		return
 	}
 	saveFile(finalBytes)
+}
+
+func main (){
+	flag.Parse()
+
+	var m3u8Url = ""
+	if *mode == "simple" {
+		m3u8Url = loadVideoUrlSimple()
+	} else {
+		go loadVideoUrlFromRemote()
+		m3u8Url = <- urlChan
+	}
+
+	println(m3u8Url)
+
+	m3u8Content := fetchM3u8File(m3u8Url)
+	videoUrls := decodeVideoUrl(string(m3u8Content))
+
+	ctrlCount := 0
+	finishMark := false
+	for i, vl := range videoUrls {
+		finishMark = false
+		go downLoadFile(i, vl)
+
+		ctrlCount += 1
+		if ctrlCount > 50 {
+			finishMark = true
+
+			saveVideoSegment(videoUrls, ctrlCount)
+			ctrlCount = 0
+		}
+	}
+
+	if !finishMark {
+		saveVideoSegment(videoUrls, ctrlCount)
+	}
 }
