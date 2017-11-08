@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"net/http"
 	"os"
@@ -12,6 +13,10 @@ import (
 	"flag"
 	"github.com/tidwall/gjson"
 	"./logger"
+)
+
+const (
+	PARALLEL_LINE = 10
 )
 
 var name = flag.String("name", "movie.ts", "save file name")
@@ -120,11 +125,11 @@ func decodeVideoUrl(m3u8Content string) []string{
 }
 
 func saveVideoSegment(videoUrls []string, progress int, segmentCount int) {
-	urlLen := len(videoUrls)
+	urlLen := segmentCount // len(videoUrls)
 	videoBytes := make([][]byte, urlLen)
-	for _, _ = range videoUrls {
+	for i := 0; i < segmentCount; i++{
 		videoContent := <- downChan
-		videoBytes[videoContent.pos] = videoContent.content
+		videoBytes[i] = videoContent.content
 	}
 
 	finalBytes := []byte{}
@@ -136,7 +141,21 @@ func saveVideoSegment(videoUrls []string, progress int, segmentCount int) {
 		println("video not found")
 		return
 	}
-	saveFile(finalBytes)
+
+	targetFile := getFileName()
+	if !Exist(targetFile) {
+		saveFile(finalBytes)
+	} else {
+		appendFile(finalBytes)
+	}
+}
+
+func appendFile(targetBytes []byte) {
+	targetFile := getFileName()
+
+	fd, _:=os.OpenFile(targetFile, os.O_WRONLY|os.O_APPEND, 0644)
+    fd.Write(targetBytes)
+    fd.Close()
 }
 
 func Exist(filename string) bool {
@@ -174,9 +193,10 @@ func main (){
 		go downLoadFile(i, vl)
 
 		ctrlCount += 1
-		if ctrlCount > 50 {
+		if ctrlCount >= PARALLEL_LINE {
 			finishMark = true
 
+			logger.Info(fmt.Sprintf("Downloading %d/%d", i, len(videoUrls)))
 			saveVideoSegment(videoUrls, i, ctrlCount)
 			ctrlCount = 0
 		}
@@ -185,4 +205,5 @@ func main (){
 	if !finishMark {
 		saveVideoSegment(videoUrls, len(videoUrls), ctrlCount)
 	}
+	logger.Info("Download Done")
 }
