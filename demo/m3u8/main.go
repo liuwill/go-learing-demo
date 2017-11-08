@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 	"net/http"
-	_ "os"
+	"os"
 	_ "errors"
 	_ "io"
 	_ "bufio"
@@ -11,6 +11,7 @@ import (
 	_ "regexp"
 	"flag"
 	"github.com/tidwall/gjson"
+	"./logger"
 )
 
 var name = flag.String("name", "movie.ts", "save file name")
@@ -60,8 +61,18 @@ func fetchMeta(url string){
 	out <- body
 }
 
+func getFileName() string {
+	outputFile := "movie.ts"
+	if len(*name) > 0 {
+		outputFile = *name
+	}
+
+	return outputFile
+}
+
 func saveFile(bytesData []byte){
-	outputFile := *name
+	outputFile := getFileName()
+
 	err := ioutil.WriteFile(outputFile, bytesData, 0644)
 	if err != nil {
 		println(err.Error())
@@ -108,7 +119,7 @@ func decodeVideoUrl(m3u8Content string) []string{
 	return videoUrls
 }
 
-func saveVideoSegment(videoUrls []string, segmentCount int) {
+func saveVideoSegment(videoUrls []string, progress int, segmentCount int) {
 	urlLen := len(videoUrls)
 	videoBytes := make([][]byte, urlLen)
 	for _, _ = range videoUrls {
@@ -128,8 +139,19 @@ func saveVideoSegment(videoUrls []string, segmentCount int) {
 	saveFile(finalBytes)
 }
 
+func Exist(filename string) bool {
+    _, err := os.Stat(filename)
+    return err == nil || os.IsExist(err)
+}
+
 func main (){
 	flag.Parse()
+
+	targetFile := getFileName()
+	if Exist(targetFile) {
+		logger.Error("File [ " + targetFile + " ] is exist")
+		return
+	}
 
 	var m3u8Url = ""
 	if *mode == "simple" {
@@ -146,6 +168,7 @@ func main (){
 
 	ctrlCount := 0
 	finishMark := false
+
 	for i, vl := range videoUrls {
 		finishMark = false
 		go downLoadFile(i, vl)
@@ -154,12 +177,12 @@ func main (){
 		if ctrlCount > 50 {
 			finishMark = true
 
-			saveVideoSegment(videoUrls, ctrlCount)
+			saveVideoSegment(videoUrls, i, ctrlCount)
 			ctrlCount = 0
 		}
 	}
 
 	if !finishMark {
-		saveVideoSegment(videoUrls, ctrlCount)
+		saveVideoSegment(videoUrls, len(videoUrls), ctrlCount)
 	}
 }
