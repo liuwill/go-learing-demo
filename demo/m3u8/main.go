@@ -1,18 +1,19 @@
 package main
 
 import (
+	_ "bufio"
+	_ "errors"
+	"flag"
 	"fmt"
-	"strings"
+	_ "io"
+	"io/ioutil"
 	"net/http"
 	"os"
-	_ "errors"
-	_ "io"
-	_ "bufio"
-	"io/ioutil"
 	_ "regexp"
-	"flag"
-	"github.com/tidwall/gjson"
+	"strings"
+
 	"./logger"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -25,7 +26,7 @@ var info = flag.String("info", "", "url for simple mode")
 
 type DownResult struct {
 	content []byte
-	pos int
+	pos     int
 }
 
 var out = make(chan []byte)
@@ -33,7 +34,7 @@ var downChan = make(chan DownResult)
 var batchChan = make(chan int)
 var urlChan = make(chan string)
 
-func downLoadFile(pos int, url string){
+func downLoadFile(pos int, url string) {
 	resp, err := http.Get(url)
 
 	if err != nil {
@@ -48,11 +49,11 @@ func downLoadFile(pos int, url string){
 	println("downloading", pos, len(body))
 	downChan <- DownResult{
 		content: body,
-		pos: pos,
+		pos:     pos,
 	}
 }
 
-func fetchMeta(url string){
+func fetchMeta(url string) {
 	resp, err := http.Get(url)
 
 	if err != nil {
@@ -75,7 +76,7 @@ func getFileName() string {
 	return outputFile
 }
 
-func saveFile(bytesData []byte){
+func saveFile(bytesData []byte) {
 	outputFile := getFileName()
 
 	err := ioutil.WriteFile(outputFile, bytesData, 0644)
@@ -94,7 +95,7 @@ func loadVideoUrlFromRemote() {
 
 	go fetchMeta(realUrl)
 
-	content := <- out
+	content := <-out
 	jsonStr := string(content)
 
 	value := gjson.Get(jsonStr, "segs.MP4-HD-Mobile-M3u8.0.url")
@@ -107,12 +108,12 @@ func loadVideoUrlSimple() string {
 
 func fetchM3u8File(m3u8Url string) []byte {
 	go fetchMeta(m3u8Url)
-	m3u8Content := <- out
+	m3u8Content := <-out
 
 	return m3u8Content
 }
 
-func decodeVideoUrl(m3u8Content string) []string{
+func decodeVideoUrl(m3u8Content string) []string {
 	contentList := strings.Split(string(m3u8Content), "\r\n")
 	videoUrls := []string{}
 
@@ -127,8 +128,8 @@ func decodeVideoUrl(m3u8Content string) []string{
 func saveVideoSegment(videoUrls []string, progress int, segmentCount int) {
 	urlLen := segmentCount // len(videoUrls)
 	videoBytes := make([][]byte, urlLen)
-	for i := 0; i < segmentCount; i++{
-		videoContent := <- downChan
+	for i := 0; i < segmentCount; i++ {
+		videoContent := <-downChan
 		videoBytes[i] = videoContent.content
 	}
 
@@ -153,23 +154,23 @@ func saveVideoSegment(videoUrls []string, progress int, segmentCount int) {
 func appendFile(targetBytes []byte) {
 	targetFile := getFileName()
 
-	fd, _:=os.OpenFile(targetFile, os.O_WRONLY|os.O_APPEND, 0644)
-    fd.Write(targetBytes)
-    fd.Close()
+	fd, _ := os.OpenFile(targetFile, os.O_WRONLY|os.O_APPEND, 0644)
+	fd.Write(targetBytes)
+	fd.Close()
 }
 
 func Exist(filename string) bool {
-    _, err := os.Stat(filename)
-    return err == nil || os.IsExist(err)
+	_, err := os.Stat(filename)
+	return err == nil || os.IsExist(err)
 }
 
-func main (){
+func main() {
 	flag.Parse()
 
 	targetFile := getFileName()
 	if Exist(targetFile) {
 		logger.Error("File [ " + targetFile + " ] is exist")
-		return
+		os.Exit(1)
 	}
 
 	var m3u8Url = ""
@@ -177,7 +178,7 @@ func main (){
 		m3u8Url = loadVideoUrlSimple()
 	} else {
 		go loadVideoUrlFromRemote()
-		m3u8Url = <- urlChan
+		m3u8Url = <-urlChan
 	}
 
 	println(m3u8Url)
