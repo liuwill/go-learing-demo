@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# ./start.sh m3u8 http://url.com/video.m3u8
+
 if [ "$1" = "m3u8" ]; then
   echo "Running m3u8 downloading demo"
   if [ -n "$2" ]; then
