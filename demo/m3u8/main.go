@@ -114,7 +114,11 @@ func fetchM3u8File(m3u8Url string) []byte {
 }
 
 func decodeVideoUrl(m3u8Content string) []string {
-	contentList := strings.Split(string(m3u8Content), "\r\n")
+	segMark := "\n"
+	if strings.Contains(m3u8Content, "\r\n") {
+		segMark = "\r\n"
+	}
+	contentList := strings.Split(string(m3u8Content), segMark)
 	videoUrls := []string{}
 
 	for _, contentLine := range contentList {
