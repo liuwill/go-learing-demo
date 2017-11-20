@@ -14,12 +14,14 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// go run main.go --url="http://gupiao.jd.com/xxxx" --pin="xxx-xxx"
 var targetUrl = flag.String("url", "", "jd finance url")
 var targetPin = flag.String("pin", "", "pin id")
+var isPublish = flag.Bool("publish", false, "publish to wechat")
 
-func ExampleScrape() {
-	println(*targetPin)
-	println(*targetUrl)
+func FinanceScrape() {
+	fields := []string{"author", "action", "meta", "deal", "duration", "price"}
+
 	resp, err := http.Post(*targetUrl,
 		"application/x-www-form-urlencoded",
 		strings.NewReader("pin="+(*targetPin)))
@@ -41,7 +43,7 @@ func ExampleScrape() {
 	}
 
 	// Find the review items
-	fields := []string{"author", "action", "meta", "deal", "duration", "price"}
+
 	colList := []string{"liuwill"}
 	doc.Find("table tbody").Each(func(i int, s *goquery.Selection) {
 		// For each item found, get the band and title
@@ -65,25 +67,31 @@ func ExampleScrape() {
 		"author": "liuwill",
 		"doc":    strings.Join(resultList, "\n"),
 	})
-
 	println(string(jsonStr))
+
+	if *isPublish {
+		body, _ := publistWechat(jsonStr)
+		fmt.Println("response Body:", string(body))
+	}
+}
+
+func publistWechat(jsonStr []byte) ([]byte, error) {
 	req, err := http.NewRequest("POST", "http://192.168.2.239:7077/tmp/wechat", bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	respF, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("response Status:", respF.Status)
-	fmt.Println("response Headers:", respF.Header)
-	body, _ := ioutil.ReadAll(respF.Body)
-	fmt.Println("response Body:", string(body))
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	return ioutil.ReadAll(resp.Body)
 }
 
 func main() {
 	flag.Parse()
-	ExampleScrape()
+	FinanceScrape()
 }
