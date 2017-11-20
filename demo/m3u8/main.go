@@ -40,7 +40,7 @@ func downLoadFile(pos int, url string) {
 	if err != nil {
 		println(err.Error())
 		out <- []byte{}
-		return
+		// return
 	}
 	defer resp.Body.Close()
 
