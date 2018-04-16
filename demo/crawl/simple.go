@@ -20,8 +20,6 @@ func parseSimple() {
 		"http://weibo.com",
 		"http://zhihu.com",
 		"http://douban.com",
-		"http://sale.videojj.com",
-		"http://plat.videojj.com",
 	}
 
 	for _, url := range urls {

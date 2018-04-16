@@ -2,5 +2,3 @@ http://videojj.com
 http://weibo.com
 http://zhihu.com
 http://douban.com
-http://sale.videojj.com
-http://plat.videojj.com
